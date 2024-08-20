@@ -95,7 +95,7 @@ class FileUtility:
 
 # Step 5: Main Script
 def main():
-    sitemap_url = 'https://www.almayadeen.net/sitemaps/all/sitemap-2024-7.xml'
+    sitemap_url = 'https://www.almayadeen.net/sitemaps/all/sitemap-2024-6.xml'
     sitemap_parser = SitemapParser(sitemap_url)
 
     article_urls = sitemap_parser.get_article_urls()
@@ -112,7 +112,7 @@ def main():
             print(f"Error scraping {url}: {e}")
 
     file_utility = FileUtility()
-    file_utility.save_to_json(articles, year='2024', month='07')
+    file_utility.save_to_json(articles, year='2024', month='06')
 
 
 if __name__ == "__main__":

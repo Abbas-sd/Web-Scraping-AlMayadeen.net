@@ -6,8 +6,8 @@ app = Flask(__name__)
 # Connect to MongoDB
 try:
     client = MongoClient("mongodb://localhost:27017/")
-    db = client["AlMayadeen"]
-    collection = db["articles"]
+    db = client["Almayadeen"]
+    collection = db["Articles"]
 except errors.ConnectionError as e:
     app.logger.error(f"Database connection failed: {e}")
     collection = None
