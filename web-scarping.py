@@ -17,6 +17,14 @@ class Article:
     author: Optional[str]
     full_text: str
     article_type: str
+    video_duration: Optional[str]
+    lang: Optional[str]
+    description: Optional[str]
+    classes: List[dict]
+    html: Optional[str]
+    lite_url: Optional[str]
+    word_count: Optional[str]
+
 
 
 # Step 2: Implement the Sitemap Parser
@@ -44,20 +52,6 @@ class ArticleScraper:
         if metadata.get('type') != 'article':
             return None
 
-        # Extract article content from <p> tags
-        '''
-        paragraphs = soup.find_all('p')
-        full_text = "\n".join([p.get_text() for p in paragraphs])
-        '''
-        '''
-        # Target the main content div, this will depend on the page structure
-        article_div = soup.find('div', {'class': 'p-content'})  # Adjust class based on actual site
-
-        # Extract paragraphs within this div
-        paragraphs = article_div.find_all('p')
-        full_text = '\n'.join([para.get_text() for para in paragraphs])
-        '''
-
         # Target the first div with either class 'p-content' or 'lg_para summary'
         article_div = soup.select_one('div.p-content, div.lg_para summary, lg_para')
 
@@ -79,7 +73,14 @@ class ArticleScraper:
             last_updated_date=metadata.get('last_updated', ''),
             author=metadata.get('author', ''),
             full_text=full_text,
-            article_type=metadata.get('type', '')
+            article_type=metadata.get('type', ''),
+            video_duration=metadata.get('video_duration', None),
+            lang=metadata.get('lang', None),
+            description=metadata.get('description', None),
+            classes=metadata.get('classes', []),
+            html=metadata.get('html', ''),
+            lite_url=metadata.get('lite_url', ''),
+            word_count=metadata.get('word_count', '')
         )
 
 

@@ -176,7 +176,7 @@ def longest_articles():
             {
                 "$project": {
                     "_id": 0,
-                    "title": 1,
+                    "full_text": 1,
                     "word_count": 1
                 }
             }
@@ -193,23 +193,74 @@ def longest_articles():
 @app.route('/shortest_articles', methods=['GET'])
 def shortest_articles():
     try:
-        # Pipeline to find the top 10 shortest articles by word count
+        # Pipeline to get the top 10 shortest articles by word count
         pipeline = [
+            {"$match": {"word_count": {"$gt": 0}, "full_text": {"$ne": ""}}},  # Exclude articles with empty or null full_text
             {"$sort": {"word_count": 1}},  # Sort by word count in ascending order
-            {"$limit": 10},  # Limit to top 10 articles
-            {
-                "$project": {
-                    "_id": 0,
-                    "title": 1,
-                    "word_count": 1
-                }
-            }
+            {"$limit": 10},  # Limit to top 10
+            {"$project": {"_id": 0, "full_text": 1, "word_count": 1}}  # Project full_text and word count
         ]
 
         result = list(collection.aggregate(pipeline))
-        return jsonify(result)
+
+        # Format the response for clarity
+        formatted_result = [
+            {"full_text": item["full_text"], "word_count": f"{item['word_count']} words"}
+            for item in result
+        ]
+
+        return jsonify(formatted_result)
     except Exception as e:
         app.logger.error(f"Error fetching shortest articles: {e}")
+        return jsonify({"error": "An error occurred while processing your request."}), 500
+
+# Route for getting articles grouped by the number of keywords they contain
+@app.route('/articles_by_keyword_count', methods=['GET'])
+def articles_by_keyword_count():
+    try:
+        # Pipeline to group articles by the number of keywords
+        pipeline = [
+            {"$project": {"keyword_count": {"$size": "$keywords"}}},  # Add a field for the number of keywords
+            {"$group": {"_id": "$keyword_count", "count": {"$sum": 1}}},  # Group by keyword count and sum articles
+            {"$sort": {"_id": 1}}  # Sort by the number of keywords in ascending order
+        ]
+
+        result = list(collection.aggregate(pipeline))
+
+        # Format the response for clarity
+        formatted_result = [
+            {"keyword_count": f"{item['_id']} keywords", "article_count": f"{item['count']} articles"}
+            for item in result
+        ]
+
+        return jsonify(formatted_result)
+    except Exception as e:
+        app.logger.error(f"Error fetching articles by keyword count: {e}")
+        return jsonify({"error": "An error occurred while processing your request."}), 500
+
+
+# Route for getting articles with a thumbnail image
+@app.route('/articles_with_thumbnail', methods=['GET'])
+def articles_with_thumbnail():
+    try:
+        # Query to find articles with a non-empty thumbnail field that contains a valid image URL
+        query = {
+            "thumbnail": {"$regex": r"https?://.*\.(jpg|jpeg|png|gif|bmp|webp)(\?.*)?$"}
+        }
+        projection = {"_id": 0, "title": 1, "thumbnail": 1}
+
+        # Fetch matching articles
+        result = list(collection.find(query, projection))
+
+        # Format the response to show titles with their corresponding thumbnail URLs
+        formatted_result = [
+            {"title": item["title"], "thumbnail": item["thumbnail"]}
+            for item in result
+        ]
+
+        return jsonify(formatted_result)
+    except Exception as e:
+        app.logger.error(f"Error fetching articles with thumbnails: {e}")
         return jsonify({"error": "An error occurred while processing your request."}), 500
 
 
