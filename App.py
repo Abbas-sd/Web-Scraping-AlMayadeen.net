@@ -1,11 +1,14 @@
+from collections import Counter
 from flask import Flask, jsonify, request
 from pymongo import MongoClient, errors
 from datetime import datetime, timedelta
 import re
-
+from bson import ObjectId
+import logging
 
 app = Flask(__name__)
-
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 # Connect to MongoDB
 try:
     client = MongoClient("mongodb://localhost:27017/")
@@ -455,6 +458,71 @@ def articles_by_coverage(coverage):
         return jsonify({"error": "An error occurred while processing your request."}), 500
 
 
+@app.route('/popular_keywords_last_X_days/<int:X>', methods=['GET'])
+def popular_keywords_last_X_days(X):
+    try:
+        # Calculate the datetime X days ago from now
+        current_time = datetime.utcnow()
+        X_days_ago = current_time - timedelta(days=X)
+
+        logger.info(f"Fetching popular keywords from the last {X} days.")
+        logger.debug(f"Current UTC time: {current_time}")
+        logger.debug(f"Datetime {X} days ago: {X_days_ago}")
+
+        # MongoDB Aggregation Pipeline
+        pipeline = [
+            {
+                '$addFields': {
+                    'publication_date_parsed': {
+                        '$dateFromString': {
+                            'dateString': '$publication_date',
+                            'onError': None,
+                            'onNull': None
+                        }
+                    }
+                }
+            },
+            {
+                '$match': {
+                    'publication_date_parsed': {
+                        '$gte': X_days_ago
+                    }
+                }
+            },
+            {
+                '$unwind': '$keywords'
+            },
+            {
+                '$group': {
+                    '_id': '$keywords',
+                    'count': {'$sum': 1}
+                }
+            },
+            {
+                '$sort': {'count': -1}
+            },
+            # Optional: Limit to top N keywords
+            # {'$limit': 10}
+        ]
+
+        # Execute the aggregation pipeline
+        results = list(collection.aggregate(pipeline))
+
+        logger.debug(f"Aggregation results: {results}")
+
+        # Format the response
+        response = [
+            {'keyword': result['_id'], 'count': result['count']}
+            for result in results
+        ]
+
+        logger.info(f"Found {len(response)} keywords.")
+
+        return jsonify(response), 200
+
+    except Exception as e:
+        logger.error(f"Error occurred: {e}", exc_info=True)
+        return jsonify({'error': 'An error occurred while processing your request.'}), 500
 @app.route('/articles_by_month/<int:year>/<int:month>', methods=['GET'])
 def articles_by_month(year, month):
     try:
