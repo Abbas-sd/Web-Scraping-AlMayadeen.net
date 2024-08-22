@@ -2,11 +2,19 @@ from collections import Counter
 from flask import Flask, jsonify, request
 from pymongo import MongoClient, errors
 from datetime import datetime, timedelta
+from flask_pymongo import PyMongo
 import re
 from bson import ObjectId
 import logging
+import pytz
 
 app = Flask(__name__)
+
+# Configure MongoDB URI
+app.config['MONGO_URI'] = 'mongodb://localhost:27017/Almayadeen'
+
+mongo = PyMongo(app)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 # Connect to MongoDB
@@ -171,53 +179,48 @@ def articles_by_year(year):
 # Route for getting the top 10 longest articles by word count
 @app.route('/longest_articles', methods=['GET'])
 def longest_articles():
-    try:
-        # Pipeline to find the top 10 longest articles by word count, excluding those with empty full_text
-        pipeline = [
-            {"$match": {"full_text": {"$ne": ""}}},  # Exclude articles with empty full_text
-            {"$sort": {"word_count": -1}},  # Sort by word count in descending order
-            {"$limit": 10},  # Limit to top 10 articles
-            {
-                "$project": {
-                    "_id": 0,
-                    "full_text": 1,
-                    "word_count": 1
-                }
-            }
-        ]
+    # Step 1: Update existing records to convert `word_count` to integer
+    result = collection.update_many(
+        {"word_count": {"$type": "string"}},
+        [{"$set": {"word_count": {"$toInt": "$word_count"}}}]
+    )
 
-        result = list(collection.aggregate(pipeline))
-        return jsonify(result)
-    except Exception as e:
-        app.logger.error(f"Error fetching longest articles: {e}")
-        return jsonify({"error": "An error occurred while processing your request."}), 500
 
+    # Step 2: Query to get the top 10 longest articles
+    pipeline = [
+        {"$addFields": {"word_count": {"$toInt": "$word_count"}}},  # Ensure `word_count` is an integer
+        {"$sort": {"word_count": -1}},  # Sort by `word_count` in descending order
+        {"$limit": 10},  # Limit to the top 10 articles
+        {"$project": {
+            "_id": 0,
+            "full_text": 1,
+            "post_id": 1,
+            "author": 1,
+            "word_count": 1
+        }}
+    ]
+
+    articles = list(collection.aggregate(pipeline))
+
+    return jsonify(articles)
 # Route for getting the top 10 shortest articles by word count
 @app.route('/shortest_articles', methods=['GET'])
 def shortest_articles():
-    try:
-        # Pipeline to get the top 10 shortest articles by word count
-        pipeline = [
-            {"$match": {"word_count": {"$exists": True, "$ne": None}, "full_text": {"$ne": ""}}},  # Exclude articles with empty or null full_text
-            {"$addFields": {"word_count": {"$toInt": "$word_count"}}},  # Convert word_count to integer
-            {"$sort": {"word_count": 1}},  # Sort by word count in ascending order
-            {"$limit": 10},  # Limit to top 10
-            {"$project": {"_id": 0, "full_text": 1, "word_count": 1}}  # Project full_text and word count
-        ]
+    pipeline = [
+        # Exclude articles with empty full_text
+        {"$match": {"full_text": {"$ne": ""}}},
+        # Convert word_count from string to integer
+        {"$addFields": {"word_count_int": {"$toInt": "$word_count"}}},
+        # Sort by word_count_int in ascending order
+        {"$sort": {"word_count_int": 1}},
+        # Limit to top 10 results
+        {"$limit": 10},
+        # Project only the fields you want in the response
+        {"$project": {"_id": 0, "post_id": 1, "author": 1, "full_text": 1, "word_count": 1}}
+    ]
 
-        result = list(collection.aggregate(pipeline))
-
-        # Format the response for clarity
-        formatted_result = [
-            {"full_text": item["full_text"], "word_count": f"{item['word_count']} words"}
-            for item in result
-        ]
-
-        return jsonify(formatted_result)
-    except Exception as e:
-        app.logger.error(f"Error fetching shortest articles: {e}")
-        return jsonify({"error": "An error occurred while processing your request."}), 500
-
+    results = list(collection.aggregate(pipeline))
+    return jsonify(results)
 # Route for getting articles grouped by the number of keywords they contain
 @app.route('/articles_by_keyword_count', methods=['GET'])
 def articles_by_keyword_count():
@@ -313,9 +316,6 @@ def articles_by_classes():
     except Exception as e:
         app.logger.error(f"Error fetching articles by class: {e}")
         return jsonify({"error": "An error occurred while processing your request."}), 500
-
-from datetime import datetime
-from flask import jsonify
 
 @app.route('/recent_articles', methods=['GET'])
 def recent_articles():
@@ -426,37 +426,24 @@ def articles_updated_after_publication():
         app.logger.error(f"Error fetching articles updated after publication: {e}")
         return jsonify({"error": "An error occurred while processing your request."}), 500
 
+
 @app.route('/articles_by_coverage/<coverage>', methods=['GET'])
 def articles_by_coverage(coverage):
+    pipeline = [
+        {"$match": {"classes.key": "class5", "classes.value": coverage}},
+        {"$project": {
+            "full_text": 1,
+            "post_id": 1,
+            "author": 1,
+            "_id": {"$toString": "$_id"}
+        }}
+    ]
+
     try:
-        # Query to find articles with the specified coverage in the classes field
-        query = {
-            "classes": {
-                "$elemMatch": {
-                    "key": "class2",
-                    "value": coverage
-                }
-            }
-        }
-        projection = {"_id": 0, "title": 1, "url": 1, "classes": 1}
-
-        # Fetch matching articles
-        result = list(collection.find(query, projection))
-
-        # Format the response to show titles and URLs
-        formatted_result = [
-            {
-                "title": item["title"],
-                "url": item["url"]
-            }
-            for item in result
-        ]
-
-        return jsonify(formatted_result)
+        articles = list(collection.aggregate(pipeline))
+        return jsonify(articles)
     except Exception as e:
-        app.logger.error(f"Error fetching articles by coverage: {e}")
-        return jsonify({"error": "An error occurred while processing your request."}), 500
-
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/popular_keywords_last_X_days/<int:X>', methods=['GET'])
 def popular_keywords_last_X_days(X):
@@ -706,39 +693,19 @@ def articles_by_specific_date(date):
 
 @app.route('/articles_containing_text/<text>', methods=['GET'])
 def articles_containing_text(text):
-    try:
-        # Escape special characters in the text to prevent issues with regex
-        escaped_text = re.escape(text)
+    # Perform the query to find articles containing the specified text
+    query = {
+        'full_text': {'$regex': text, '$options': 'i'}  # Case-insensitive search
+    }
 
-        # Log the escaped text for debugging
-        app.logger.debug(f"Searching for text: {escaped_text}")
+    # Fetch the articles from MongoDB
+    articles = collection.find(query, {'_id': 0, 'full_text': 1, 'post_id': 1, 'author': 1})
 
-        # Query to find articles that contain the specific text within full_text
-        query = {
-            "full_text": {"$regex": escaped_text, "$options": "i"}  # Case-insensitive search
-        }
-        projection = {"_id": 0, "title": 1, "full_text": 1}
+    # Convert the cursor to a list of dictionaries
+    articles_list = list(articles)
 
-        # Fetch matching articles
-        result = list(collection.find(query, projection))
+    return jsonify(articles_list)
 
-        # Check if result is empty
-        if not result:
-            app.logger.debug("No articles found matching the text.")
-
-        # Format the response to show titles and snippets of the matching articles
-        formatted_result = [
-            {
-                "title": item["title"],
-                "full_text_snippet": item["full_text"][:200]  # Show first 200 characters as a snippet
-            }
-            for item in result
-        ]
-
-        return jsonify(formatted_result)
-    except Exception as e:
-        app.logger.error(f"Error fetching articles containing text: {e}")
-        return jsonify({"error": "An error occurred while processing your request."}), 500
 
 @app.route('/articles_with_more_than/<int:word_count>', methods=['GET'])
 def articles_with_more_than(word_count):
@@ -771,6 +738,23 @@ def articles_with_more_than(word_count):
     except Exception as e:
         app.logger.error(f"Error fetching articles with more than {word_count} words: {e}")
         return jsonify({"error": "An error occurred while processing your request."}), 500
+@app.route('/articles_grouped_by_coverage', methods=['GET'])
+def articles_grouped_by_coverage():
+    # MongoDB aggregation pipeline
+    pipeline = [
+        {"$unwind": "$classes"},
+        {"$match": {"classes.key": "class5"}},
+        {"$group": {"_id": "$classes.value", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+
+    # Execute the aggregation pipeline
+    result = list(collection.aggregate(pipeline))
+
+    # Format the response
+    response = [{"coverage_category": item["_id"], "article_count": item["count"]} for item in result]
+
+    return jsonify(response), 200
 
 @app.route('/articles_by_title_length', methods=['GET'])
 def articles_by_title_length():
@@ -795,6 +779,52 @@ def articles_by_title_length():
     except Exception as e:
         app.logger.error(f"Error fetching articles by title length: {e}")
         return jsonify({"error": "An error occurred while processing your request."}), 500
+
+@app.route('/articles_last_X_hours/<int:X>', methods=['GET'])
+def articles_last_X_hours(X):
+    try:
+        # Calculate the cutoff date
+        cutoff_date = datetime.utcnow() - timedelta(hours=X)
+
+        # Define the aggregation pipeline
+        pipeline = [
+            {
+                "$addFields": {
+                    "publication_date": {
+                        "$dateFromString": {
+                            "dateString": "$publication_date",
+                            "format": "%Y-%m-%dT%H:%M:%S%z"  # Adjust format to match your data
+                        }
+                    }
+                }
+            },
+            {
+                "$match": {
+                    "publication_date": {"$gte": cutoff_date}
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "title": 1,
+                    "publication_date": 1
+                }
+            }
+        ]
+
+        # Execute the aggregation pipeline
+        articles = list(mongo.db.articles.aggregate(pipeline))
+
+        # Format response
+        formatted_articles = [
+            f'"{article["title"]}" (Published on {article["publication_date"]})'
+            for article in articles
+        ]
+
+        return jsonify(formatted_articles)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
