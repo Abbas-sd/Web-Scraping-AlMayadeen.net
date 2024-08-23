@@ -1,11 +1,11 @@
-from collections import Counter
+import logging
 from flask import Flask, jsonify, request
 from pymongo import MongoClient, errors
 from datetime import datetime, timedelta
 from flask_pymongo import PyMongo
 import re
 from bson import ObjectId
-import logging
+from collections import Counter
 import pytz
 
 app = Flask(__name__)
