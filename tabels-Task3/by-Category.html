@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<!-- Styles -->
+<style>
+#chartdiv {
+  width: 100%;
+  height: 500px;
+}
+</style>
+
+<!-- Resources -->
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+
+<!-- Chart code -->
+<script>
+am5.ready(function() {
+
+// Create root element
+// https://www.amcharts.com/docs/v5/getting-started/#Root_element
+var root = am5.Root.new("chartdiv");
+
+// Set themes
+// https://www.amcharts.com/docs/v5/concepts/themes/
+root.setThemes([
+  am5themes_Animated.new(root)
+]);
+
+// Create chart
+// https://www.amcharts.com/docs/v5/charts/xy-chart/
+var chart = root.container.children.push(am5xy.XYChart.new(root, {
+  panX: false,
+  panY: false,
+  wheelX: "panX",
+  wheelY: "zoomX",
+  paddingLeft: 0,
+  layout: root.verticalLayout
+}));
+
+// Add scrollbar
+// https://www.amcharts.com/docs/v5/charts/xy-chart/scrollbars/
+chart.set("scrollbarX", am5.Scrollbar.new(root, {
+  orientation: "horizontal"
+}));
+
+// Create axes
+// https://www.amcharts.com/docs/v5/charts/xy-chart/axes/
+var xRenderer = am5xy.AxisRendererX.new(root, {
+  minorGridEnabled: true
+});
+var xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, {
+  categoryField: "class",
+  renderer: xRenderer,
+  tooltip: am5.Tooltip.new(root, {})
+}));
+
+xRenderer.grid.template.setAll({
+  location: 1
+})
+
+var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+  min: 0,
+  renderer: am5xy.AxisRendererY.new(root, {
+    strokeOpacity: 0.1
+  })
+}));
+
+// Add legend
+// https://www.amcharts.com/docs/v5/charts/xy-chart/legend-xy-series/
+var legend = chart.children.push(am5.Legend.new(root, {
+  centerX: am5.p50,
+  x: am5.p50
+}));
+
+// Fetch data from the API
+fetch("http://127.0.0.1:5000/articles_by_classes")
+  .then(response => response.json())
+  .then(data => {
+    // Transform the data to a format suitable for the chart
+    const chartData = data.map(item => {
+      const count = parseInt(item.article_count.split(" ")[0], 10);  // Extract count from "5803 articles"
+      return {
+        class: item.class,
+        count: count
+      };
+    });
+
+    // Set data
+    xAxis.data.setAll(chartData);
+    var series = chart.series.push(am5xy.ColumnSeries.new(root, {
+      name: "Article Count",
+      stacked: true,
+      xAxis: xAxis,
+      yAxis: yAxis,
+      valueYField: "count",
+      categoryXField: "class"
+    }));
+
+    series.columns.template.setAll({
+      tooltipText: "{categoryX}: {valueY}",
+      tooltipY: am5.percent(10)
+    });
+    series.data.setAll(chartData);
+
+    // Add bullets to display values on columns
+    series.bullets.push(function () {
+      return am5.Bullet.new(root, {
+        sprite: am5.Label.new(root, {
+          text: "{valueY}",
+          fill: root.interfaceColors.get("alternativeText"),
+          centerY: am5.p50,
+          centerX: am5.p50,
+          populateText: true
+        })
+      });
+    });
+
+    // Add series to legend
+    legend.data.push(series);
+
+    // Make stuff animate on load
+    series.appear();
+    chart.appear(1000, 100);
+
+  })
+  .catch(error => {
+    console.error('Error fetching data:', error);
+  });
+
+}); // end am5.ready()
+</script>
+
+<!-- HTML -->
+<div id="chartdiv"></div>
+
+</body>
+</html>

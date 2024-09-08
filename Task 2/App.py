@@ -8,8 +8,10 @@ from bson import ObjectId
 from collections import Counter
 import pytz
 
-app = Flask(__name__)
+from flask_cors import CORS
 
+app = Flask(__name__)
+CORS(app)
 # Configure MongoDB URI
 app.config['MONGO_URI'] = 'mongodb://localhost:27017/Almayadeen'
 
@@ -82,6 +84,7 @@ def articles_by_date():
 def articles_by_word_count():
     try:
         pipeline = [
+            {"$match": {"word_count": {"$gt": 0}}},  # Exclude articles with a word count of 0
             {"$group": {"_id": "$word_count", "count": {"$sum": 1}}},
             {"$sort": {"_id": 1}}
         ]
@@ -690,7 +693,6 @@ def articles_by_specific_date(date):
         app.logger.error(f"Error fetching articles by date: {e}")
         return jsonify({"error": "An error occurred while processing your request."}), 500
 
-
 @app.route('/articles_containing_text/<text>', methods=['GET'])
 def articles_containing_text(text):
     # Perform the query to find articles containing the specified text
@@ -780,51 +782,49 @@ def articles_by_title_length():
         app.logger.error(f"Error fetching articles by title length: {e}")
         return jsonify({"error": "An error occurred while processing your request."}), 500
 
-@app.route('/articles_last_X_hours/<int:X>', methods=['GET'])
-def articles_last_X_hours(X):
-    try:
-        # Calculate the cutoff date
-        cutoff_date = datetime.utcnow() - timedelta(hours=X)
+@app.route("/articles_last_X_hours/<int:hour>", methods=["GET"])
+def articles_last_X_hours(hour):
+    # Calculate the date and time X hours ago
+    date_X_hours_ago = datetime.utcnow() - timedelta(hours=hour)
 
-        # Define the aggregation pipeline
-        pipeline = [
-            {
-                "$addFields": {
-                    "publication_date": {
-                        "$dateFromString": {
-                            "dateString": "$publication_date",
-                            "format": "%Y-%m-%dT%H:%M:%S%z"  # Adjust format to match your data
-                        }
-                    }
-                }
-            },
-            {
-                "$match": {
-                    "publication_date": {"$gte": cutoff_date}
-                }
-            },
-            {
-                "$project": {
-                    "_id": 0,
-                    "title": 1,
-                    "publication_date": 1
-                }
+    # MongoDB aggregation pipeline
+    pipeline = [
+        {
+            "$project": {
+                "title": 1,
+                "published_time": {
+                    "$dateFromString": {"dateString": "$published_time"}
+                },
+                "_id": 0,
             }
-        ]
+        },
+        {
+            "$match": {
+                "published_time": {"$gte": date_X_hours_ago}
+            }
+        }
+    ]
 
-        # Execute the aggregation pipeline
-        articles = list(mongo.db.articles.aggregate(pipeline))
+    # Execute the aggregation pipeline
+    result = list(collection.aggregate(pipeline))
 
-        # Format response
-        formatted_articles = [
-            f'"{article["title"]}" (Published on {article["publication_date"]})'
-            for article in articles
-        ]
+    # Return the result as JSON
+    return jsonify(result)
 
-        return jsonify(formatted_articles)
+@app.route('/articles_by_sentiment/<sentiment>', methods=['GET'])
+def get_articles_by_sentiment(sentiment):
+    if sentiment not in ['positive', 'neutral', 'negative']:
+        return jsonify({"error": "Invalid sentiment value. Choose from 'positive', 'neutral', or 'negative'."}), 400
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    articles = collection.find({"sentiment": sentiment},
+                               {"_id": 0, "title": 1, "author": 1, "publication_date": 1, "full_text": 1})
+
+    result = []
+    for article in articles:
+        result.append(article)
+
+    return jsonify(result), 200
+
 
 if __name__ == '__main__':
     app.run(debug=True)
