@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Article Keyword Search</title>
+</head>
+<body>
+<!-- Styles -->
+<style>
+#chartdiv {
+  width: 100%;
+  max-width: 100%;
+  height: 550px;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+.form-group input, .form-group button {
+  margin-bottom: 10px;
+}
+.alert {
+  margin-top: 10px;
+  color: red;
+}
+</style>
+
+<!-- Resources -->
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/hierarchy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+
+<!-- Chart code -->
+<script>
+am5.ready(function() {
+  let chartRoot = null; // Store the root chart globally
+
+  // Handle form submission
+  document.getElementById('keywordForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+
+    // Get the keyword input value
+    var keyword = document.getElementById('keyword').value;
+
+    // Show loading message
+    document.getElementById('chartdiv').innerHTML = '<p>Loading...</p>';
+    document.getElementById('message').style.display = 'none'; // Hide any previous limit message
+
+    // Fetch data from API
+    fetch(`http://127.0.0.1:5000/articles_by_keyword/${keyword}`)
+      .then(response => response.json())
+      .then(data => {
+        let articlesToShow = data;
+
+        // Limit the number of articles to 200
+        if (data.length > 200) {
+          articlesToShow = data.slice(0, 200); // Slice the data to 200 articles
+          document.getElementById('message').textContent = 'Due to the high number of articles, only 200 are displayed.';
+          document.getElementById('message').style.display = 'block'; // Show the limit message
+        }
+
+        // Transform data into hierarchical format
+        var hierarchicalData = transformData(articlesToShow);
+
+        // Create chart
+        createChart(hierarchicalData);
+      })
+      .catch(error => {
+        console.error('Error fetching data:', error);
+        document.getElementById('chartdiv').innerHTML = '<p>Error loading data. Please try again.</p>';
+      });
+  });
+
+  // Function to create the chart
+  function createChart(hierarchicalData) {
+    // Dispose of the previous chart if it exists
+    if (chartRoot) {
+      chartRoot.dispose();
+    }
+
+    // Create root element
+    chartRoot = am5.Root.new("chartdiv");
+
+    // Set themes
+    chartRoot.setThemes([
+      am5themes_Animated.new(chartRoot)
+    ]);
+
+    // Create wrapper container
+    var container = chartRoot.container.children.push(am5.Container.new(chartRoot, {
+      width: am5.percent(100),
+      height: am5.percent(100),
+      layout: chartRoot.verticalLayout
+    }));
+
+    // Create series
+    var series = container.children.push(am5hierarchy.ForceDirected.new(chartRoot, {
+      singleBranchOnly: false,
+      downDepth: 2,
+      topDepth: 1,
+      initialDepth: 1,
+      valueField: "value",
+      categoryField: "name",
+      childDataField: "children",
+      idField: "name",
+      linkWithField: "linkWith",
+      manyBodyStrength: -10,
+      centerStrength: 0.8
+    }));
+
+    series.get("colors").setAll({
+      step: 2
+    });
+
+    series.links.template.set("strength", 0.5);
+
+    // Set data to series
+    series.data.setAll(hierarchicalData);
+
+    series.set("selectedDataItem", series.dataItems[0]);
+
+    // Make stuff animate on load
+    series.appear(1000, 100);
+  }
+
+  // Function to transform flat data into hierarchical format
+  function transformData(data) {
+    var root = { name: "Articles", children: [] };
+
+    data.forEach(article => {
+      var category = root.children.find(c => c.name === article.author);
+      if (!category) {
+        category = { name: article.author, children: [] };
+        root.children.push(category);
+      }
+      category.children.push({
+        name: article.title,
+        value: 1 // Placeholder for value, adjust as needed
+      });
+    });
+
+    return [root];
+  }
+}); // end am5.ready()
+</script>
+
+<!-- HTML Form for keyword input -->
+<form id="keywordForm" class="form-group">
+    <label for="keyword">Enter a keyword:</label>
+    <input type="text" id="keyword" placeholder="Enter keyword" required />
+    <button type="submit">Search</button>
+</form>
+
+<!-- Alert message for large number of articles -->
+<div id="message" class="alert" style="display: none;"></div>
+
+<!-- Chart container -->
+<div id="chartdiv"></div>
+
+</body>
+</html>

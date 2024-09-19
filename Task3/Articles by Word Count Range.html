@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Article Word Count Chart</title>
+    <style>
+      #chartdiv {
+        width: 100%;
+        height: 400px;
+      }
+
+      #inputForm {
+        margin-bottom: 20px;
+      }
+
+      #inputForm input {
+        padding: 5px;
+        margin-right: 10px;
+      }
+
+      #inputForm button {
+        padding: 5px 10px;
+      }
+    </style>
+
+    <!-- Resources -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+</head>
+<body>
+
+<!-- Input form for word count range -->
+<div id="inputForm">
+  <label for="minWordCount">Min Word Count:</label>
+  <input type="number" id="minWordCount" placeholder="e.g. 50" />
+  <label for="maxWordCount">Max Word Count:</label>
+  <input type="number" id="maxWordCount" placeholder="e.g. 100" />
+  <button onclick="fetchAndRenderData()">Fetch Data</button>
+</div>
+
+<!-- Chart container -->
+<div id="chartdiv"></div>
+
+<!-- Chart code -->
+<script>
+  function fetchAndRenderData() {
+    // Get the user input for word count range
+    var minWordCount = document.getElementById('minWordCount').value;
+    var maxWordCount = document.getElementById('maxWordCount').value;
+
+    // Validate input
+    if (!minWordCount || !maxWordCount || isNaN(minWordCount) || isNaN(maxWordCount)) {
+      alert('Please enter valid numbers for both min and max word counts.');
+      return;
+    }
+
+    if (parseInt(minWordCount) > parseInt(maxWordCount)) {
+      alert('Min word count cannot be greater than max word count.');
+      return;
+    }
+
+    // Disable button while fetching
+    document.querySelector('button').disabled = true;
+
+    // Fetch data from Flask endpoint using the input word count range
+    var url = `/articles_by_word_count_range/${minWordCount}/${maxWordCount}`;
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        renderChart(data.articles);
+        document.querySelector('button').disabled = false; // Re-enable button
+      })
+      .catch(error => {
+        console.error('Error fetching data:', error);
+        alert('Error fetching data.');
+        document.querySelector('button').disabled = false; // Re-enable button
+      });
+  }
+
+  function renderChart(articles) {
+    // Clear the existing chart
+    document.getElementById('chartdiv').innerHTML = '';
+
+    // Create root element
+    var root = am5.Root.new("chartdiv");
+
+    // Set themes
+    root.setThemes([am5themes_Animated.new(root)]);
+
+    // Create chart
+    var chart = root.container.children.push(am5xy.XYChart.new(root, {
+      panX: true,
+      panY: true,
+      wheelY: "zoomXY",
+      pinchZoomX: true,
+      pinchZoomY: true
+    }));
+
+    // Create axes
+    var xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, {
+      renderer: am5xy.AxisRendererX.new(root, {
+        minGridDistance: 30
+      }),
+      categoryField: "title"
+    }));
+
+    var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+      renderer: am5xy.AxisRendererY.new(root, {})
+    }));
+
+    // Create series
+    var series = chart.series.push(am5xy.ColumnSeries.new(root, {
+      xAxis: xAxis,
+      yAxis: yAxis,
+      valueYField: "word_count",
+      categoryXField: "title",
+      tooltipText: "{categoryX}: {valueY} words"
+    }));
+
+    // Set data
+    var chartData = articles.map(article => ({
+      title: article.title,
+      word_count: parseInt(article.word_count.replace(' words', ''))
+    }));
+
+    series.data.setAll(chartData);
+
+    // Make chart animate on load
+    chart.appear(1000, 100);
+  }
+</script>
+
+</body>
+</html>

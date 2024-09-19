@@ -3,17 +3,16 @@ from flask import Flask, jsonify, request
 from pymongo import MongoClient, errors
 from datetime import datetime, timedelta
 from flask_pymongo import PyMongo
+from flask_cors import CORS
 import re
 from bson import ObjectId
 from collections import Counter
 import pytz
 
-from flask_cors import CORS
-
 app = Flask(__name__)
 CORS(app)
 # Configure MongoDB URI
-app.config['MONGO_URI'] = 'mongodb://localhost:27017/Almayadeen'
+app.config['MONGO_URI'] = 'mongodb://localhost:27017/Mama'
 
 mongo = PyMongo(app)
 
@@ -22,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Connect to MongoDB
 try:
     client = MongoClient("mongodb://localhost:27017/")
-    db = client["Almayadeen"]
+    db = client["Almayadeen-NPL"]
     collection = db["Articles"]
 except errors.ConnectionError as e:
     app.logger.error(f"Database connection failed: {e}")
@@ -84,9 +83,15 @@ def articles_by_date():
 def articles_by_word_count():
     try:
         pipeline = [
-            {"$match": {"word_count": {"$gt": 0}}},  # Exclude articles with a word count of 0
-            {"$group": {"_id": "$word_count", "count": {"$sum": 1}}},
-            {"$sort": {"_id": 1}}
+            {"$match": {"word_count": {"$ne": ""}}},  # Ensure word_count is not an empty string
+            {
+                "$addFields": {
+                    "word_count_int": {"$toInt": "$word_count"}  # Convert word_count to an integer
+                }
+            },
+            {"$match": {"word_count_int": {"$gt": 0}}},  # Filter articles with word_count greater than 0
+            {"$group": {"_id": "$word_count_int", "count": {"$sum": 1}}},  # Group by the integer word_count
+            {"$sort": {"_id": 1}}  # Sort by word_count
         ]
         result = list(collection.aggregate(pipeline))
         return jsonify(result)
@@ -559,15 +564,8 @@ def articles_by_word_count_range(min_word_count, max_word_count):
         if min_word_count < 0 or max_word_count < min_word_count:
             return jsonify({"error": "Invalid word count range."}), 400
 
-        # Pipeline to convert word_count to integer and filter by range
+        # Pipeline to filter articles by word count range
         pipeline = [
-            {
-                "$addFields": {
-                    "word_count": {
-                        "$toInt": "$word_count"  # Convert word_count to integer
-                    }
-                }
-            },
             {
                 "$match": {
                     "word_count": {
@@ -708,7 +706,6 @@ def articles_containing_text(text):
 
     return jsonify(articles_list)
 
-
 @app.route('/articles_with_more_than/<int:word_count>', methods=['GET'])
 def articles_with_more_than(word_count):
     try:
@@ -824,7 +821,112 @@ def get_articles_by_sentiment(sentiment):
         result.append(article)
 
     return jsonify(result), 200
+@app.route('/articles_by_entity/<entity>', methods=['GET'])
+def get_articles_by_entity(entity):
+    try:
+        # Query MongoDB for articles mentioning the entity in per, loc, or org, with a projection to include only the specified fields
+        articles = collection.find({
+            '$or': [
+                {'entities.per': {'$regex': entity, '$options': 'i'}},
+                {'entities.loc': {'$regex': entity, '$options': 'i'}},
+                {'entities.org': {'$regex': entity, '$options': 'i'}}
+            ]
+        }, {
+            'author': 1,
+            'entities': 1,
+            'full_text': 1,
+            'post_id': 1,
+            'url': 1
+        })
 
+        # Convert the cursor to a list and process it
+        articles_list = []
+        for article in articles:
+            # Convert ObjectId to string for JSON serialization
+            article['_id'] = str(article['_id'])
+            articles_list.append(article)
+
+        # Return the articles as a JSON response
+        return jsonify(articles_list), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to query articles: {str(e)}"}), 500
+
+# Sentiment Trend Analysis
+def sentiment_trends():
+    pipeline = [
+        {
+            "$addFields": {
+                "publication_date_converted": {
+                    "$dateFromString": {
+                        "dateString": "$publication_date"  # No need to specify format
+                    }
+                }
+            }
+        },
+        {
+            "$group": {
+                "_id": {
+                    "$dateToString": {
+                        "format": "%Y-%m-%d",
+                        "date": "$publication_date_converted"
+                    }
+                },
+                "positive_count": {
+                    "$sum": { "$cond": [{ "$eq": ["$sentiment", "positive"] }, 1, 0] }
+                },
+                "negative_count": {
+                    "$sum": { "$cond": [{ "$eq": ["$sentiment", "negative"] }, 1, 0] }
+                },
+                "neutral_count": {
+                    "$sum": { "$cond": [{ "$eq": ["$sentiment", "neutral"] }, 1, 0] }
+                }
+            }
+        },
+        { "$sort": { "_id": 1 } }  # Sort by date
+    ]
+    return list(collection.aggregate(pipeline))
+
+# Keyword Trend Analysis
+def keyword_trends(keyword):
+    pipeline = [
+        {
+            "$match": { "keywords": keyword }
+        },
+        {
+            "$addFields": {
+                "publication_date_converted": {
+                    "$dateFromString": {
+                        "dateString": "$publication_date",
+                        "format": "%Y-%m-%dT%H:%M:%S%z"
+                    }
+                }
+            }
+        },
+        {
+            "$group": {
+                "_id": {
+                    "$dateToString": { "format": "%Y-%m-%d", "date": "$publication_date_converted" }
+                },
+                "keyword_count": { "$sum": 1 }
+            }
+        },
+        { "$sort": { "_id": 1 } }  # Sort by date
+    ]
+    return list(collection.aggregate(pipeline))
+
+# API to fetch sentiment trends
+@app.route('/sentiment_trends', methods=['GET'])
+def get_sentiment_trends():
+    trends = sentiment_trends()
+    return jsonify(trends)
+
+
+# API to fetch keyword trends
+@app.route('/keyword_trends/<keyword>', methods=['GET'])
+def get_keyword_trends(keyword):
+    trends = keyword_trends(keyword)
+    return jsonify(trends)
 
 if __name__ == '__main__':
     app.run(debug=True)

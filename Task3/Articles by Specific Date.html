@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Articles Count Chart</title>
+  <!-- Styles -->
+  <style>
+    #chartdiv {
+      width: 100%;
+      height: 500px;
+      max-width: 100%;
+    }
+    #input-container {
+      margin-bottom: 20px;
+    }
+  </style>
+  <!-- Resources -->
+  <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+</head>
+<body>
+
+<!-- Input container for date selection -->
+<div id="input-container">
+  <label for="date-input">Select Date (YYYY-MM-DD):</label>
+  <input type="date" id="date-input">
+  <button onclick="loadChart()">Load Chart</button>
+</div>
+
+<!-- Chart container -->
+<div id="chartdiv"></div>
+
+<!-- Chart code -->
+<script>
+  am5.ready(function() {
+    // Create root element
+    var root = am5.Root.new("chartdiv");
+
+    // Set themes
+    root.setThemes([ am5themes_Animated.new(root) ]);
+
+    // Create chart
+    var chart = root.container.children.push(am5xy.XYChart.new(root, {
+      panX: true,
+      panY: true,
+      wheelX: "panX",
+      wheelY: "zoomX",
+      pinchZoomX: true
+    }));
+
+    // Add cursor
+    var cursor = chart.set("cursor", am5xy.XYCursor.new(root, {}));
+
+    // Create axes
+    var xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
+      baseInterval: { timeUnit: "day", count: 1 },
+      renderer: am5xy.AxisRendererX.new(root, {
+        grid: { template: { strokeOpacity: 0.1 } }
+      }),
+      tooltip: am5.Tooltip.new(root, { labelText: "{valueX.formatDate('yyyy-MM-dd')}" })
+    }));
+
+    var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+      renderer: am5xy.AxisRendererY.new(root, {
+        grid: { template: { strokeOpacity: 0.1 } }
+      }),
+      tooltip: am5.Tooltip.new(root, { labelText: "{valueY}" })
+    }));
+
+    // Create series
+    var series = chart.series.push(am5xy.LineSeries.new(root, {
+      name: "Articles",
+      xAxis: xAxis,
+      yAxis: yAxis,
+      valueYField: "count",
+      valueXField: "date",
+      tooltip: am5.Tooltip.new(root, {
+        labelText: "{count} articles"
+      })
+    }));
+
+    series.fills.template.setAll({
+      fillOpacity: 0.2,
+      visible: true
+    });
+
+    // Function to fetch data from Flask API
+    async function fetchData(date) {
+      try {
+        let response = await fetch(`http://127.0.0.1:5000/articles_by_specific_date/${date}`);
+        let data = await response.json();
+
+        // Prepare data for the chart
+        let chartData = [{
+          date: new Date(date).getTime(), // Timestamp for the specific date
+          count: data.articles.length // Number of articles
+        }];
+
+        // Set chart data
+        series.data.setAll(chartData);
+        series.appear(1000); // Add animation on load
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    }
+
+    // Function to load chart based on input date
+    window.loadChart = function() {
+      var dateInput = document.getElementById("date-input").value;
+      if (dateInput) {
+        fetchData(dateInput);
+      } else {
+        alert("Please select a date.");
+      }
+    };
+
+  }); // end am5.ready()
+</script>
+
+</body>
+</html>

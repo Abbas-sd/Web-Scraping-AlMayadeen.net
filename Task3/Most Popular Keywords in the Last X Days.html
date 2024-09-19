@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Popular Keywords Chart</title>
+
+  <!-- Styles -->
+  <style>
+    #chartdiv {
+      width: 100%;
+      height: 500px;
+    }
+    #inputSection {
+      margin-bottom: 20px;
+    }
+  </style>
+
+  <!-- Resources -->
+  <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+</head>
+<body>
+
+  <!-- Input section for user -->
+  <div id="inputSection">
+    <label for="daysInput">Enter number of days:</label>
+    <input type="number" id="daysInput" min="1" placeholder="Enter days">
+    <button onclick="fetchAndDisplayData()">Fetch Data</button>
+  </div>
+
+  <!-- Chart container -->
+  <div id="chartdiv"></div>
+
+  <!-- Script to fetch data and display chart -->
+  <script>
+    async function fetchAndDisplayData() {
+      // Get user input
+      const days = document.getElementById("daysInput").value;
+
+      if (!days) {
+        alert("Please enter a number of days.");
+        return;
+      }
+
+      // Define API URL
+      const url = `http://127.0.0.1:5000/popular_keywords_last_X_days/${days}`;
+
+      try {
+        // Fetch data from API
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error("Failed to fetch data from the API");
+        }
+        const data = await response.json();
+
+        // Process data for chart
+        const chartData = data.map(item => ({
+          keyword: item.keyword,
+          value: item.count
+        }));
+
+        // Create chart after fetching data
+        createChart(chartData);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        alert("There was an error fetching the data. Please try again.");
+      }
+    }
+
+    function createChart(data) {
+      am5.ready(function() {
+
+        // Root element
+        var root = am5.Root.new("chartdiv");
+
+        // Set themes
+        root.setThemes([am5themes_Animated.new(root)]);
+
+        // Create chart
+        var chart = root.container.children.push(am5xy.XYChart.new(root, {
+          panX: true,
+          panY: true,
+          wheelX: "panX",
+          wheelY: "zoomX",
+          paddingLeft: 5,
+          paddingRight: 5
+        }));
+
+        // Create axes
+        var xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, {
+          categoryField: "keyword",
+          renderer: am5xy.AxisRendererX.new(root, { minGridDistance: 30 }),
+          tooltip: am5.Tooltip.new(root, {})
+        }));
+
+        var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+          renderer: am5xy.AxisRendererY.new(root, { strokeOpacity: 0.1 })
+        }));
+
+        // Create series
+        var series = chart.series.push(am5xy.ColumnSeries.new(root, {
+          name: "Keyword Count",
+          xAxis: xAxis,
+          yAxis: yAxis,
+          valueYField: "value",
+          categoryXField: "keyword",
+          sequencedInterpolation: true,
+          fill: am5.color(0x67b7dc),
+          stroke: am5.color(0x67b7dc)
+        }));
+
+        series.columns.template.setAll({
+          tooltipText: "{categoryX}: {valueY}",
+          width: am5.percent(80),
+          fillOpacity: 0.9,
+          strokeOpacity: 0
+        });
+
+        // Set data
+        xAxis.data.setAll(data);
+        series.data.setAll(data);
+
+        // Animate on load
+        series.appear(1000);
+        chart.appear(1000, 100);
+      });
+    }
+  </script>
+
+</body>
+</html>

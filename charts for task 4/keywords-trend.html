@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyword Trends Chart</title>
+
+    <!-- Styles -->
+    <style>
+        #chartdiv {
+            width: 100%;
+            max-width: 100%;
+            height: 500px;
+        }
+    </style>
+
+    <!-- Resources -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/themes/Responsive.js"></script>
+</head>
+<body>
+
+    <!-- HTML -->
+    <div>
+        <input type="text" id="keywordInput" placeholder="Enter keyword" />
+        <button id="loadDataButton">Load Data</button>
+    </div>
+    <div id="chartdiv"></div>
+
+    <!-- Chart code -->
+    <script>
+    am5.ready(function() {
+        // Create root element
+        var root = am5.Root.new("chartdiv");
+
+        // Create chart
+        var chart = root.container.children.push(am5xy.XYChart.new(root, {
+            wheelX: "panX",
+            wheelY: "zoomX",
+            pinchZoomX: true,
+            paddingLeft: 0
+        }));
+
+        // Create axes
+        var xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
+            baseInterval: { timeUnit: "day", count: 1 },
+            renderer: am5xy.AxisRendererX.new(root, {
+                minorGridEnabled: true,
+                minorLabelsEnabled: true
+            })
+        }));
+
+        var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+            renderer: am5xy.AxisRendererY.new(root, {
+                pan: "zoom"
+            })
+        }));
+
+        // Add series
+        var series = chart.series.push(am5xy.LineSeries.new(root, {
+            name: "Keyword Count",
+            xAxis: xAxis,
+            yAxis: yAxis,
+            valueYField: "keyword_count",
+            valueXField: "date",
+            tooltip: am5.Tooltip.new(root, {
+                labelText: "{valueY}"
+            })
+        }));
+
+        // Function to load data from API
+        function loadData(keyword) {
+            fetch(`http://127.0.0.1:5000/keyword_trends/${keyword}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Transform the data
+                    const transformedData = data.map(item => ({
+                        date: new Date(item._id).getTime(),  // Convert date string to timestamp
+                        keyword_count: item.keyword_count
+                    }));
+
+                    // Set the data for the series
+                    series.data.setAll(transformedData);
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }
+
+        // Button click event to load data
+        document.getElementById('loadDataButton').addEventListener('click', function() {
+            const keyword = document.getElementById('keywordInput').value;
+            loadData(keyword);
+        });
+
+        // Initialize chart appearance
+        series.appear(1000);
+        chart.appear(1000, 100);
+    }); // end am5.ready()
+    </script>
+</body>
+</html>

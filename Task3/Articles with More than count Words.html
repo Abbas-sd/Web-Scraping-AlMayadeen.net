@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Word Count Chart</title>
+</head>
+<body>
+<!-- Styles -->
+<style>
+    #chartdiv {
+        width: 100%;
+        height: 500px;
+    }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 20px;
+    }
+</style>
+
+<!-- Input for word count -->
+<div class="form-group">
+    <label for="wordCountInput">Enter word count:</label>
+    <input type="number" id="wordCountInput" placeholder="Enter word count">
+    <button id="fetchDataButton">Fetch Data</button>
+</div>
+
+<!-- Resources -->
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+
+<!-- Chart code -->
+<script>
+am5.ready(function() {
+
+    // Create root element
+    var root = am5.Root.new("chartdiv");
+
+    // Set themes
+    root.setThemes([
+        am5themes_Animated.new(root)
+    ]);
+
+    // Create chart
+    var chart = root.container.children.push(
+        am5xy.XYChart.new(root, {
+            panX: true,
+            panY: true,
+            wheelX: "panX",
+            wheelY: "zoomX",
+            paddingLeft: 5,
+            paddingRight: 5
+        })
+    );
+
+    // Add cursor
+    var cursor = chart.set("cursor", am5xy.XYCursor.new(root, {}));
+    cursor.lineY.set("visible", false);
+
+    // Create axes
+    var xRenderer = am5xy.AxisRendererX.new(root, {
+        minGridDistance: 60,
+        minorGridEnabled: true
+    });
+
+    var xAxis = chart.xAxes.push(
+        am5xy.CategoryAxis.new(root, {
+            maxDeviation: 0.3,
+            categoryField: "author",
+            renderer: xRenderer,
+            tooltip: am5.Tooltip.new(root, {})
+        })
+    );
+
+    var yAxis = chart.yAxes.push(
+        am5xy.ValueAxis.new(root, {
+            maxDeviation: 0.3,
+            renderer: am5xy.AxisRendererY.new(root, {
+                strokeOpacity: 0.1
+            })
+        })
+    );
+
+    // Create series
+    var series = chart.series.push(
+        am5xy.ColumnSeries.new(root, {
+            name: "Series 1",
+            xAxis: xAxis,
+            yAxis: yAxis,
+            valueYField: "value",
+            sequencedInterpolation: true,
+            categoryXField: "author"
+        })
+    );
+
+    series.columns.template.setAll({
+        width: am5.percent(120),
+        fillOpacity: 0.9,
+        strokeOpacity: 0
+    });
+
+    series.columns.template.adapters.add("fill", (fill, target) => {
+        return chart.get("colors").getIndex(series.columns.indexOf(target));
+    });
+
+    series.columns.template.adapters.add("stroke", (stroke, target) => {
+        return chart.get("colors").getIndex(series.columns.indexOf(target));
+    });
+
+    // Function to fetch data from API
+    function fetchData() {
+        var wordCount = document.getElementById("wordCountInput").value;
+
+        if (!wordCount) {
+            alert("Please enter a valid word count.");
+            return;
+        }
+
+        fetch(`http://127.0.0.1:5000/articles_with_more_than/${wordCount}`)
+            .then(response => response.json())
+            .then(data => {
+                var chartData = transformData(data);
+                xAxis.data.setAll(chartData);
+                series.data.setAll(chartData);
+                series.appear(1000);
+                chart.appear(1000, 100);
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    }
+
+      // Transform the data into a format usable by the chart
+    function transformData(data) {
+        return data.map(article => {
+            // Remove the "words" from the word_count field and convert it to a number
+            let wordCount = parseInt(article.word_count.replace(" words", ""));
+
+            return {
+                author: article.title, // Using title since there's no author field
+                value: wordCount
+            };
+        });
+    }
+
+    // Add event listener to button
+    document.getElementById("fetchDataButton").addEventListener("click", fetchData);
+
+}); // end am5.ready()
+</script>
+
+<!-- HTML -->
+<div id="chartdiv"></div>
+
+</body>
+</html>

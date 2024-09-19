@@ -1,0 +1,129 @@
+<!-- Styles -->
+<style>
+#chartdiv {
+  width: 100%;
+  height: 500px;
+}
+</style>
+
+
+<!-- Resources -->
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+
+<!-- Chart code -->
+<script>
+am5.ready(function() {
+
+  // Create root element
+  var root = am5.Root.new("chartdiv");
+
+  // Set themes
+  root.setThemes([am5themes_Animated.new(root)]);
+
+  // Create chart
+  var chart = root.container.children.push(am5xy.XYChart.new(root, {
+    panX: false,
+    panY: false,
+    wheelX: "panX",
+    wheelY: "zoomX",
+    paddingLeft: 0,
+    layout: root.verticalLayout
+  }));
+
+  // Add scrollbar
+  chart.set("scrollbarX", am5.Scrollbar.new(root, {
+    orientation: "horizontal"
+  }));
+
+  // Fetch data from API
+  fetch("http://127.0.0.1:5000/sentiment_trends")
+    .then(response => response.json())
+    .then(apiData => {
+
+      // Filter out entries where all sentiment counts are zero
+      let data = apiData
+        .map(item => ({
+          year: item._id,
+          positive: item.positive_count,
+          neutral: item.neutral_count,
+          negative: item.negative_count
+        }))
+        .filter(item => item.positive > 0 || item.neutral > 0 || item.negative > 0);
+
+      // Create axes
+      var xRenderer = am5xy.AxisRendererX.new(root, {
+        minorGridEnabled: true
+      });
+
+      var xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, {
+        categoryField: "year",
+        renderer: xRenderer,
+        tooltip: am5.Tooltip.new(root, {})
+      }));
+
+      xRenderer.grid.template.setAll({
+        location: 1
+      });
+
+      xAxis.data.setAll(data);
+
+      var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+        min: 0,  // Set the minimum value to 0
+        strictMinMax: true,
+        renderer: am5xy.AxisRendererY.new(root, {
+          strokeOpacity: 0.1
+        })
+      }));
+
+      // Add legend
+      var legend = chart.children.push(am5.Legend.new(root, {
+        centerX: am5.p50,
+        x: am5.p50
+      }));
+
+      // Add series
+      function makeSeries(name, fieldName, color) {
+        var series = chart.series.push(am5xy.ColumnSeries.new(root, {
+          name: name,
+          stacked: true,
+          xAxis: xAxis,
+          yAxis: yAxis,
+          valueYField: fieldName,
+          categoryXField: "year"
+        }));
+
+        series.columns.template.setAll({
+          tooltipText: "{name}, {categoryX}: {valueY}",
+          tooltipY: am5.percent(10),
+          fill: color,  // Set the color for the columns
+          stroke: color
+        });
+
+        series.data.setAll(data);
+
+        // Animate on load
+        series.appear();
+
+        legend.data.push(series);
+      }
+
+      // Create series for each sentiment with specific colors
+      makeSeries("Positive", "positive", am5.color(0x00FF00));  // Green
+      makeSeries("Neutral", "neutral", am5.color(0xCCCCCC));    // Gray
+      makeSeries("Negative", "negative", am5.color(0xFF0000));  // Red
+
+      // Animate chart on load
+      chart.appear(1000, 100);
+
+    })
+    .catch(error => {
+      console.error("Error fetching sentiment trends:", error);
+    });
+
+}); // end am5.ready()
+</script>
+
+<!-- HTML -->
+<div id="chartdiv"></div>
