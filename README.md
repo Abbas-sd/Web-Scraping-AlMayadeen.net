@@ -1,12 +1,16 @@
 Blame
 webscraper
 Al Mayadeen Article Scraper
-Overview
-This Python script is designed to scrape articles from the Al Mayadeen website and save the data in a JSON file. It extracts URLs from the website's sitemap, retrieves article URLs, and scrapes essential information from each article. The scraped data is stored in a file named articles.json.
 
 Author
 Name: Abbas safeydeen
-ID: 10120268
+
+Overview
+
+This Python project is designed to scrape articles from the Al Mayadeen website and save it into a json files then store them into a database.After that we made a flaskAPI App that countains endpoints for the url that can retrieve data.Then we used amcharts for visualizing the data in a proper way.
+
+in the task one folder a python script (web-scraping.py) is designed to extracts URLs from the website's sitemap, retrieves article URLs, and scrapes essential information from each article. The scraped data is stored in the articals folder.
+in the articals folder also their is another script (Data_Storage.py) is responsible for storing the data into a mongodb database.
 
 Features
 The script is capable of scraping the following data from each article:
@@ -25,10 +29,9 @@ How It Works
 Sitemap Retrieval: The script first fetches all URLs from the main sitemap of the Al Mayadeen website.
 Article URL Extraction: It retrieves the article URLs from the individual sitemap URLs.
 Article Scraping: The script scrapes the necessary data for each article URL.
-Data Storage: The scraped data is saved into a JSON file named articles.json.
+Data Storage: The scraped data is saved into a JSON files.
 
 Configuration
-The script is initially configured to scrape 100 articles for testing purposes. However, this limit can be easily modified to scrape up to 10,000 articles by changing the __numberOfUrls variable.
 Dependencies
 requests: This is for making HTTP requests to fetch webpage content.
 BeautifulSoup (bs4): For parsing and extracting data from HTML and XML documents.
@@ -42,11 +45,11 @@ python web-scarpping.py
 Customization
 Change the Number of Articles: Modify the value of __numberOfUrls to scrape a different number of articles. __numberOfUrls = 10000  # Change to the desired number of articles to scrape
 
-Testing
-For fast testing and quick output, a Jupyter Notebook file named testUnit.ipynb is provided. This notebook allows you to test the script in a more interactive environment, ideal for rapid development and debugging.
-
 Output
 The output file articles.json will be saved in the same directory as the script. It contains the JSON representation of the scraped article data, formatted with indentation for readability.
 
 Error Handling
 The script includes basic error handling for HTTP requests. If an error occurs during the fetching of URLs or article content, an error message will be returned and printed to the console.
+
+
+
