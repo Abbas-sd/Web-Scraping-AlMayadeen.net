@@ -50,3 +50,32 @@ The output file articles.json will be saved in the same directory as the script.
 
 Error Handling
 The script includes basic error handling for HTTP requests. If an error occurs during the fetching of URLs or article content, an error message will be returned and printed to the console.
+
+task two:
+in folder task 2 we created API flask app that is connected to the database where are the data stored.
+the libraries we used are:
+logging
+flask / Flask, jsonify, request
+pymongo / MongoClient, errors
+datetime / datetime, timedelta
+flask_pymongo / PyMongo
+flask_cors /CORS
+
+this app contains more than 30 endpoints that you can see through it the collected data you want.
+examples of endpoints:
+1- /top_keywords: it retrieves the top 10 keywords are repeated in the article.
+2- /top_authors: it retrieves the top 10 authors of the articles.
+3- /articles_by_date: it retrieves how many articles are published at the dates.
+4- /articles_by_word_count: it retrieves the numbers of words of the articles and how many times are repeated.
+5- /articles_by_keyword/<keyword>: it retrieves the articles with specific keyword the user input.
+6- /articles_by_author/<author_name>: it retrieves the articles with specific author the user input.
+7- /article_details/<postid>: it retrieves the articles with specific postid the user input.
+8- /articles_by_year/<year>: it retrieves the articles with specific date the user input.
+9- /longest_articles: it retrieves the longest articles.
+10- /shortest_articles: it retrieves the shortest articles.
+11- /articles_with_thumbnail: it retrieves the articles that contains thumbnail.
+12- /articles_by_language: it retrieves the  language of the written articles.
+and more...
+
+there is error handling for every possible error such as the user write somthing wrong or other things.
+

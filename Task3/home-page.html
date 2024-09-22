@@ -28,11 +28,51 @@
         .button-container button:hover {
             background-color: #45a049;
         }
+
+         /* Navigation bar styling */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #333;
+            padding: 1rem;
+        }
+
+        /* Navigation links */
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin-right: 15px;
+        }
+
+        .navbar a:hover {
+            color: #ddd;
+        }
+
+        /* Button styling */
+        .navbar button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        .navbar button:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
+        <h1>Welcome to the Homepage</h1>
 
-    <h1>Welcome to the Homepage</h1>
+           <nav class="navbar">
+        <!-- Button aligned to the right -->
+      <button onclick="window.location.href='../charts-for-task-4/home-page-trend.html'">Trending</button>
+
+
+    </nav>
+
     <div class="button-container">
         <button onclick="window.location.href='top-keywords.html'">Go to top-keywords </button>
         <button onclick="window.location.href='top_authors.html'">Go to top_authors </button>
@@ -41,13 +81,13 @@
         <button onclick="window.location.href='by-language.html'">Go to Articals by language </button>
         <button onclick="window.location.href='by-Category.html'">Go to Articals by Category </button>
         <button onclick="window.location.href='by-keywords.html'">Go to Articals by keywords</button>
+        <button onclick="window.location.href='articles_by_classes.html'">Go to Articals by classes</button>
         <button onclick="window.location.href='top-classes.html'">Go to Articals by top classes</button>
         <button onclick="window.location.href='articals-by-title-length.html'">Go to articals by length</button>
         <button onclick="window.location.href='by-covareg.html'">Go to articals by coverage</button>
         <button onclick="window.location.href='Articles with More than count Words.html'">Articles with More than count Words</button>
         <button onclick="window.location.href='Articles by Specific Date.html'">Articles by Specific Date</button>
         <button onclick="window.location.href='Most Popular Keywords in the Last X Days.html'">Most Popular Keywords in the Last X Days</button>
-
     </div>
 </body>
 </html>

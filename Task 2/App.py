@@ -852,6 +852,56 @@ def get_articles_by_entity(entity):
     except Exception as e:
         return jsonify({"error": f"Failed to query articles: {str(e)}"}), 500
 
+@app.route('/most_negative_articles', methods=['GET'])
+def most_positive_articles():
+    try:
+        # Query MongoDB to find the top 10 positive articles
+        top_articles = list(collection.find(
+            {"sentiment_score": {"$exists": True}}  # Ensure sentiment_score field exists
+        ).sort("sentiment_score", -1).limit(10))   # Sort by sentiment_score in descending order and limit to 10
+
+        # Format the articles and return the desired fields
+        result = []
+        for article in top_articles:
+            result.append({
+                "url": article.get("url"),
+                "title": article.get("title"),
+                "author": article.get("author"),
+                "sentiment_score": article.get("sentiment_score"),
+                "publication_date": article.get("publication_date"),
+                "full_text": article.get("full_text")
+            })
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/most_positive_articles', methods=['GET'])
+def most_negative_articles():
+    try:
+        # Query MongoDB to find the top 10 negative articles
+        negative_articles = list(collection.find(
+            {"sentiment_score": {"$exists": True}}  # Ensure sentiment_score field exists
+        ).sort("sentiment_score", 1).limit(10))   # Sort by sentiment_score in ascending order and limit to 10
+
+        # Format the articles and return the desired fields
+        result = []
+        for article in negative_articles:
+            result.append({
+                "url": article.get("url"),
+                "title": article.get("title"),
+                "author": article.get("author"),
+                "sentiment_score": article.get("sentiment_score"),
+                "publication_date": article.get("publication_date"),
+                "full_text": article.get("full_text")
+            })
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # Sentiment Trend Analysis
 def sentiment_trends():
     pipeline = [

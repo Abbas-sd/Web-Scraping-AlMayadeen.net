@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pyramid Chart with Data from API</title>
+
+    <!-- Styles -->
+    <style>
+        #chartdiv {
+            width: 100%;
+            height: 500px;
+        }
+    </style>
+
+    <!-- Resources -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/percent.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+</head>
+<body>
+
+    <!-- Chart Container -->
+    <div id="chartdiv"></div>
+
+    <!-- Chart Code -->
+    <script>
+    am5.ready(function() {
+
+        // Create root element
+        var root = am5.Root.new("chartdiv");
+
+        // Set themes
+        root.setThemes([
+            am5themes_Animated.new(root)
+        ]);
+
+        // Create chart
+        var chart = root.container.children.push(am5percent.SlicedChart.new(root, {
+            layout: root.verticalLayout
+        }));
+
+        // Create series
+        var series = chart.series.push(am5percent.PyramidSeries.new(root, {
+            orientation: "vertical",
+            valueField: "value",
+            categoryField: "category"
+        }));
+
+        // Fetch data from the API
+        fetch("http://127.0.0.1:5000/articles_by_classes")
+            .then(response => response.json())
+            .then(data => {
+                // Transform the data into the format required by the chart
+                const formattedData = data.map(item => {
+                    return {
+                        value: parseInt(item.article_count), // Extract number from "X articles"
+                        category: item.class
+                    };
+                });
+
+                // Set the data in reverse order
+                series.data.setAll(formattedData.reverse());
+
+                // Create legend
+                var legend = chart.children.push(am5.Legend.new(root, {
+                    centerX: am5.percent(50),
+                    x: am5.percent(50),
+                    marginTop: 15,
+                    marginBottom: 15
+                }));
+
+                legend.data.setAll(am5.array.copy(series.dataItems).reverse());
+
+                // Play initial series animation
+                series.appear();
+                chart.appear(1000, 100);
+            })
+            .catch(error => {
+                console.error('Error fetching the data:', error);
+            });
+
+    }); // end am5.ready()
+    </script>
+
+</body>
+</html>
