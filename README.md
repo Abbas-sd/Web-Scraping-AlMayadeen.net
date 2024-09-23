@@ -79,7 +79,5 @@ examples of endpoints:
 and more...
 
 there is error handling for every possible error such as the user write somthing wrong or other things.
-=======
 
->>>>>>> 15196a49e3f6cbdaf8a675d5f1bdc6683354d5ae
 
