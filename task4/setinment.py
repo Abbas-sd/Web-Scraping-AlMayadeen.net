@@ -11,7 +11,7 @@ except Exception as e:
 # Connect to MongoDB
 try:
     client = MongoClient('mongodb://localhost:27017/')
-    db = client['Mama']
+    db = client['Almayadeen-NPL']
     collection = db['Articles']
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
